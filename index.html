@@ -36,26 +36,40 @@ section{margin:34px 0}
 h2{font-size:17px;margin:0 0 2px;padding-left:12px;border-left:4px solid var(--accent2);letter-spacing:1px}
 h2 span{font-size:12px;color:#a89b86;font-weight:400;letter-spacing:0;margin-left:8px}
 .list{margin-top:12px;border-top:1px solid var(--line)}
-.item{display:flex;align-items:flex-start;gap:12px;padding:11px 8px;border-bottom:1px solid var(--line)}
+.item{display:flex;align-items:center;gap:10px;padding:11px 8px;border-bottom:1px solid var(--line);
+  transition:background .15s}
 .item:hover{background:var(--chip)}
-.item .d{flex:0 0 84px;font-size:12px;color:#a89b86;font-variant-numeric:tabular-nums;padding-top:3px}
-.item .t{flex:1;font-size:14.5px;color:var(--ink);text-decoration:none;word-break:break-word}
+.item .hit{flex:0 0 28px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;border-radius:50%;margin-left:-6px;position:relative;flex-shrink:0}
+.item .hit:focus-visible{outline:2px solid var(--accent2);outline-offset:1px}
+.item .dot{width:9px;height:9px;border-radius:50%;background:var(--accent2);transition:all .18s;
+  box-shadow:0 0 0 0 rgba(176,141,87,.35)}
+.item .hit:hover .dot{box-shadow:0 0 0 5px rgba(176,141,87,.16)}
+.item.read .dot{background:transparent;box-shadow:inset 0 0 0 1.5px #cfc7b8}
+.item.read .hit:hover .dot{background:var(--accent2);box-shadow:0 0 0 5px rgba(176,141,87,.16)}
+.item .d{flex:0 0 84px;font-size:12px;color:#a89b86;font-variant-numeric:tabular-nums}
+.item .t{flex:1;font-size:14.5px;color:var(--ink);text-decoration:none;word-break:break-word;
+  transition:color .18s}
 .item .t:hover{color:var(--accent);text-decoration:underline;text-underline-offset:3px}
-.item .c{flex:0 0 auto;font-size:11.5px;color:#b3a894;border:1px solid var(--line);border-radius:7px;
-  padding:3px 8px;cursor:pointer;background:var(--panel);opacity:0;transition:.15s;white-space:nowrap}
-.item:hover .c{opacity:1}
-.item .c:hover{color:var(--accent);border-color:var(--accent2)}
+.item.read .t{color:#b3a894}
+.item.read .d{color:#bfb5a3}
+.item .tip{flex:0 0 auto;font-size:11px;color:var(--accent2);opacity:0;transition:opacity .15s;white-space:nowrap}
+.item.read:hover .tip{opacity:1}
 .hide{display:none!important}
 #empty{display:none;text-align:center;color:var(--ink2);padding:60px 0;font-size:14px}
 footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:#a89b86;font-size:12px;text-align:center}
 .toast{position:fixed;left:50%;bottom:36px;transform:translate(-50%,20px);background:#2b2620;color:#fff;
-  padding:9px 18px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99}
-.toast.on{opacity:.94;transform:translate(-50%,0)}
+  padding:9px 16px;border-radius:999px;font-size:13px;opacity:0;transition:.25s;pointer-events:none;z-index:99;
+  display:flex;align-items:center;gap:14px;max-width:92vw}
+.toast.on{opacity:.96;transform:translate(-50%,0);pointer-events:auto}
+.toast button{background:none;border:none;color:#e8c98a;font-size:13px;cursor:pointer;padding:0;
+  text-decoration:underline;text-underline-offset:2px}
+.toast button:hover{color:#f6dfae}
 @media (max-width:560px){
   .wrap{padding:22px 14px 70px}
   h1{font-size:23px}
-  .item{gap:8px}.item .d{flex-basis:66px;font-size:11px}
-  .item .c{opacity:1}
+  .item{gap:7px}.item .d{flex-basis:66px;font-size:11px}
+  .item .tip{display:none}
 }
 </style>
 </head>
@@ -99,22 +113,83 @@ ORDER.forEach((name, i) => {
     const row = document.createElement('div');
     row.className = 'item';
     row.dataset.k = (t + ' ' + d).toLowerCase();
+    row.dataset.u = u;
+
+    const hit = document.createElement('div');
+    hit.className = 'hit';
+    hit.setAttribute('role', 'checkbox');
+    hit.setAttribute('tabindex', '0');
+    hit.title = '标记已读 / 恢复未读';
+    const dot = document.createElement('div'); dot.className = 'dot';
+    hit.appendChild(dot);
+
+    const dt = document.createElement('div'); dt.className = 'd'; dt.textContent = d;
     const a2 = document.createElement('a');
     a2.className = 't'; a2.href = u; a2.target = '_blank'; a2.rel = 'noopener'; a2.textContent = t;
-    const dt = document.createElement('div'); dt.className = 'd'; dt.textContent = d;
-    const btn = document.createElement('div'); btn.className = 'c'; btn.textContent = '复制标题';
-    btn.onclick = () => { navigator.clipboard.writeText(t).then(() => toast('已复制：' + t.slice(0, 18) + (t.length > 18 ? '…' : ''))); };
-    row.append(dt, a2, btn);
+    const tip = document.createElement('span'); tip.className = 'tip'; tip.textContent = '恢复未读';
+
+    row.append(hit, dt, a2, tip);
     list.appendChild(row);
   });
   body.appendChild(sec);
 });
 
-function toast(msg){
-  const el = document.getElementById('toast');
-  el.textContent = msg; el.classList.add('on');
-  clearTimeout(el._h); el._h = setTimeout(() => el.classList.remove('on'), 1600);
+const KEY = 'xmct.read.v1';
+let readSet = new Set();
+function loadRead(){
+  try { readSet = new Set(JSON.parse(localStorage.getItem(KEY) || '[]')); } catch(e) { readSet = new Set(); }
 }
+function saveRead(){
+  try { localStorage.setItem(KEY, JSON.stringify([...readSet])); } catch(e) {}
+}
+function paint(u){
+  document.querySelectorAll('.item').forEach(r => {
+    if (r.dataset.u !== u) return;
+    const on = readSet.has(u);
+    r.classList.toggle('read', on);
+    r.querySelector('.hit').setAttribute('aria-checked', on ? 'true' : 'false');
+  });
+}
+function applyAll(){
+  document.querySelectorAll('.item').forEach(r => paint(r.dataset.u));
+}
+function toggleRead(row){
+  const u = row.dataset.u;
+  const was = readSet.has(u);
+  if (was) readSet.delete(u); else readSet.add(u);
+  saveRead(); paint(u);
+  if (was) toastT('已恢复未读', null);
+  else toastT('已标记已读', () => { readSet.delete(u); saveRead(); paint(u); });
+}
+
+document.getElementById('body').addEventListener('click', e => {
+  const hit = e.target.closest('.hit');
+  if (!hit) return;
+  e.preventDefault(); e.stopPropagation();
+  toggleRead(hit.closest('.item'));
+});
+document.getElementById('body').addEventListener('keydown', e => {
+  const hit = e.target.closest('.hit');
+  if (!hit) return;
+  if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleRead(hit.closest('.item')); }
+});
+
+let toastTimer = null;
+function toastT(msg, undoFn){
+  const el = document.getElementById('toast');
+  if (undoFn) {
+    el.innerHTML = '<span>' + msg + '</span><button type="button">撤销</button>';
+    el.querySelector('button').onclick = () => { undoFn(); el.classList.remove('on'); };
+  } else {
+    el.innerHTML = '<span>' + msg + '</span>';
+  }
+  el.classList.add('on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('on'), undoFn ? 5000 : 1800);
+}
+
+loadRead();
+applyAll();
 
 const q = document.getElementById('q');
 q.addEventListener('input', () => {
