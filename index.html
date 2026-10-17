@@ -20,8 +20,11 @@ h1 small{display:block;font-size:13px;letter-spacing:4px;color:var(--accent2);fo
 .meta{color:var(--ink2);font-size:13px}
 .toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0 24px;
   position:sticky;top:0;background:linear-gradient(var(--bg) 78%,transparent);padding:12px 0;z-index:20}
-input[type=search]{flex:1;min-width:220px;padding:10px 14px;border:1px solid var(--line);
+.searchbox{position:relative;flex:1;min-width:220px}
+.searchbox svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);pointer-events:none}
+#q{width:100%;padding:10px 14px 10px 36px;border:1px solid var(--line);
   border-radius:10px;background:var(--panel);font-size:14px;color:var(--ink);outline:none}
+#q::-webkit-search-cancel-button{-webkit-appearance:none}
 input[type=search]:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(176,141,87,.12)}
 .tbtn{padding:9px 14px;border:1px solid var(--line);background:var(--panel);border-radius:10px;
   font-size:13px;color:var(--ink2);cursor:pointer}
@@ -81,8 +84,10 @@ footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:#
 </header>
 
 <div class="toolbar">
-  <input id="q" type="search" placeholder="搜索标题关键词，如：古琴 / 呼吸 / 站桩 / 论语">
-  <button class="tbtn" id="expand">展开全部</button>
+  <div class="searchbox">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a89b86" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
+    <input id="q" type="search" placeholder="搜索标题关键词，如：古琴 / 呼吸 / 站桩 / 论语">
+  </div>
 </div>
 
 <div class="toc"><h3>系列导航</h3><div id="toc"></div></div>
