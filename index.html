@@ -29,6 +29,15 @@ input[type=search]:focus{border-color:var(--accent2);box-shadow:0 0 0 3px rgba(1
 .tbtn{padding:9px 14px;border:1px solid var(--line);background:var(--panel);border-radius:10px;
   font-size:13px;color:var(--ink2);cursor:pointer}
 .tbtn:hover{border-color:var(--accent2);color:var(--accent)}
+/* 未读筛选按钮 */
+.ubt{display:flex;align-items:center;gap:6px;padding:9px 14px;border:1px solid var(--line);
+  background:var(--panel);border-radius:10px;font-size:13px;color:var(--ink2);cursor:pointer;
+  user-select:none;white-space:nowrap;transition:all .15s}
+.ubt b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.ubt:hover{border-color:var(--accent2);color:var(--accent)}
+.ubt.on{background:#f0e6d2;border-color:var(--accent2);color:var(--accent)}
+.ubt.on b{color:var(--accent)}
+.ubt.zero{opacity:.5}
 .toc{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px 18px;margin-bottom:26px}
 .toc h3{margin:0 0 10px;font-size:13px;letter-spacing:2px;color:var(--accent2);font-weight:600}
 .toc a{display:inline-block;margin:4px 14px 4px 0;font-size:13.5px;color:var(--ink2);text-decoration:none;
@@ -88,6 +97,7 @@ footer{margin-top:50px;padding-top:18px;border-top:1px solid var(--line);color:#
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a89b86" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.8-3.8"/></svg>
     <input id="q" type="search" placeholder="搜索标题关键词，如：古琴 / 呼吸 / 站桩 / 论语">
   </div>
+  <div class="ubt" id="ubt" role="button" tabindex="0" title="只看未读">未读 <b id="ubc">0</b></div>
 </div>
 
 <div class="toc"><h3>系列导航</h3><div id="toc"></div></div>
@@ -162,9 +172,9 @@ function toggleRead(row){
   const u = row.dataset.u;
   const was = readSet.has(u);
   if (was) readSet.delete(u); else readSet.add(u);
-  saveRead(); paint(u);
+  saveRead(); paint(u); afterReadChange();
   if (was) toastT('已恢复未读', null);
-  else toastT('已标记已读', () => { readSet.delete(u); saveRead(); paint(u); });
+  else toastT('已标记已读', () => { readSet.delete(u); saveRead(); paint(u); afterReadChange(); });
 }
 
 document.getElementById('body').addEventListener('click', e => {
@@ -197,22 +207,57 @@ loadRead();
 applyAll();
 
 const q = document.getElementById('q');
-q.addEventListener('input', () => {
+const ubt = document.getElementById('ubt');
+const ubc = document.getElementById('ubc');
+let unreadOnly = false;
+
+function countUnread(){
+  const seen = new Set();
+  document.querySelectorAll('.item').forEach(r => {
+    const u = r.dataset.u;
+    if (u && !readSet.has(u)) seen.add(u);
+  });
+  return seen.size;
+}
+function refreshUnread(){
+  const n = countUnread();
+  ubc.textContent = n;
+  ubt.classList.toggle('zero', n === 0);
+}
+function afterReadChange(){
+  refreshUnread();
+  if (unreadOnly) setTimeout(applyFilter, 120);   // 只看未读时，勾完让它淡出
+}
+function applyFilter(){
   const k = q.value.trim().toLowerCase();
   let shown = 0;
   document.querySelectorAll('section').forEach(sec => {
     let n = 0;
     sec.querySelectorAll('.item').forEach(it => {
-      const ok = !k || it.dataset.k.includes(k);
+      let ok = !k || it.dataset.k.includes(k);
+      if (ok && unreadOnly && readSet.has(it.dataset.u)) ok = false;
       it.classList.toggle('hide', !ok);
       if (ok) n++;
     });
     sec.classList.toggle('hide', n === 0);
     shown += n;
   });
-  document.getElementById('empty').style.display = shown ? 'none' : 'block';
-});
+  const empty = document.getElementById('empty');
+  empty.textContent = (unreadOnly && !k) ? '全部读完了，去泡壶茶吧' : '没有匹配的文章';
+  empty.style.display = shown ? 'none' : 'block';
+  refreshUnread();
+}
+q.addEventListener('input', applyFilter);
 q.addEventListener('keydown', e => { if (e.key === 'Escape') { q.value = ''; q.dispatchEvent(new Event('input')); } });
+function toggleUnread(){
+  unreadOnly = !unreadOnly;
+  ubt.classList.toggle('on', unreadOnly);
+  ubt.title = unreadOnly ? '显示全部' : '只看未读';
+  applyFilter();
+}
+ubt.addEventListener('click', toggleUnread);
+ubt.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); toggleUnread(); } });
+refreshUnread();
 </script>
 </body>
 </html>
